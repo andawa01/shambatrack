@@ -12,6 +12,12 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
+  ssl: {
+    rejectUnauthorized: false,
+  },
 });
 
+console.log("Host: " + process.env.MYSQL_HOST);
+console.log("Database: " + process.env.MYSQL_DATABASE);
+console.log("Port: " + process.env.MYSQL_PORT);
 export default pool;
