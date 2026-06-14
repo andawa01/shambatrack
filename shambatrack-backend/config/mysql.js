@@ -17,7 +17,7 @@ const pool = mysql.createPool({
   },
 });
 
-console.log("Host: " + process.env.MYSQL_HOST);
-console.log("Database: " + process.env.MYSQL_DATABASE);
-console.log("Port: " + process.env.MYSQL_PORT);
+//Sconsole.log("Host: " + process.env.MYSQL_HOST);
+//Sconsole.log("Database: " + process.env.MYSQL_DATABASE);
+//Sconsole.log("Port: " + process.env.MYSQL_PORT);
 export default pool;
