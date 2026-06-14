@@ -283,6 +283,45 @@ export async function getFarmerDashboard(req, res) {
       [farmerId],
     );
 
+    const [monthlyEarnings] = await pool.execute(
+      `
+  SELECT
+    DATE_FORMAT(date, '%b') AS month,
+    COALESCE(SUM(total_amount),0) AS earnings
+  FROM deliveries
+  WHERE farmer_id = ?
+    AND YEAR(date) = YEAR(CURDATE())
+  GROUP BY MONTH(date)
+  ORDER BY MONTH(date)
+  `,
+      [farmerId],
+    );
+
+    const [productPerformance] = await pool.execute(
+      `
+  SELECT
+    p.name AS product,
+    COALESCE(SUM(d.quantity),0) AS quantity
+  FROM deliveries d
+  JOIN products p ON p.id = d.product_id
+  WHERE d.farmer_id = ?
+  GROUP BY p.id,p.name
+  ORDER BY quantity DESC
+  `,
+      [farmerId],
+    );
+
+    const walletBreakdown = [
+      {
+        name: "Wallet",
+        value: Number(wallet.balance || 0),
+      },
+      {
+        name: "Loan",
+        value: Number(wallet.loan_balance || 0),
+      },
+    ];
+
     // NOTIFICATIONS
     const notifications = await NotificationRecipient.find({
       farmer_id: farmerId,
@@ -303,6 +342,12 @@ export async function getFarmerDashboard(req, res) {
         total_earnings: Number(deliveryStats[0]?.total_earnings || 0),
 
         pending_payments: Number(pendingStats[0]?.pending_amount || 0),
+
+        monthlyEarnings,
+
+        productPerformance,
+
+        walletBreakdown,
 
         wallet_balance: Number(wallet.balance || 0),
 

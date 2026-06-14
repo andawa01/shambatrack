@@ -372,7 +372,7 @@ const Deliveries = () => {
                       <span className="inline md:hidden text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-0.5">
                         Quantity:
                       </span>
-                      {delivery.quantity}
+                      {delivery.quantity} {delivery.unit}
                     </td>
 
                     {/* Assigned Rate */}

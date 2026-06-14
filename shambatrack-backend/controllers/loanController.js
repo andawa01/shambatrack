@@ -15,51 +15,129 @@ export async function createLoan(req, res) {
     const coopAdminId = req.user.id;
     const coopId = req.user.coop_id;
 
-    const { farmer_id, loan_type, principal, due_date } = req.body;
+    const { farmer_id, loan_type, principal, tenure } = req.body;
 
     // 1. Validation
     if (!farmer_id || !principal || !due_date) {
+      await connection.rollback();
       return res.status(400).json({
         message: "farmer_id, principal, due_date are required",
       });
     }
 
-    if (principal <= 0) {
+    if (Number(principal) <= 0) {
+      await connection.rollback();
       return res.status(400).json({
         message: "Principal must be greater than 0",
       });
     }
 
     // 2. Verify farmer belongs to this cooperative
-    const [farmer] = await connection.execute(
-      `SELECT id FROM farmers 
-       WHERE id = ? AND cooperative_id = ?`,
+    const [farmerRows] = await connection.execute(
+      `
+      SELECT id
+      FROM farmers
+      WHERE id = ? AND cooperative_id = ?
+      `,
       [farmer_id, coopId],
     );
 
-    if (farmer.length === 0) {
+    if (farmerRows.length === 0) {
+      await connection.rollback();
       return res.status(404).json({
         message: "Farmer not found in your cooperative",
       });
     }
 
-    // 3. Create loan
+    // 3. Get wallet balance
+    const [walletRows] = await connection.execute(
+      `
+      SELECT balance, loan_balance, loan_limit
+      FROM farmer_wallets
+      WHERE farmer_id = ? AND coop_id = ?
+      `,
+      [farmer_id, coopId],
+    );
+
+    const walletBalance = Number(walletRows[0]?.balance || 0);
+
+    // 4. Get pending payments
+    const [pendingRows] = await connection.execute(
+      `
+      SELECT COALESCE(SUM(balance), 0) AS pending_balance
+      FROM pending_payments
+      WHERE farmer_id = ? AND coop_id = ?
+      `,
+      [farmer_id, coopId],
+    );
+
+    const pendingBalance = Number(pendingRows[0]?.pending_balance || 0);
+
+    // 5. Get active loans
+    const [loanRows] = await connection.execute(
+      `
+      SELECT COALESCE(SUM(current_balance), 0) AS active_loans
+      FROM loans
+      WHERE farmer_id = ?
+      AND coop_id = ?
+      AND status IN ('pending', 'approved', 'disbursed')
+      `,
+      [farmer_id, coopId],
+    );
+
+    const activeLoans = Number(loanRows[0]?.active_loans || 0);
+
+    // 6. Loan limit calculation
+    const netWorth = walletBalance + pendingBalance - activeLoans;
+
+    const calculatedLimit = Math.max(Number((netWorth * 0.5).toFixed(2)), 0);
+
+    // 7. Update loan limit in wallet
+    await connection.execute(
+      `
+      UPDATE farmer_wallets
+      SET loan_limit = ?
+      WHERE farmer_id = ?
+      AND coop_id = ?
+      `,
+      [calculatedLimit, farmer_id, coopId],
+    );
+
+    // 8. Validate loan amount against limit
+    if (Number(principal) > calculatedLimit) {
+      await connection.rollback();
+
+      return res.status(400).json({
+        message: `Loan exceeds farmer limit. Available limit is KES ${calculatedLimit.toLocaleString()}`,
+        loan_limit: calculatedLimit,
+        wallet_balance: walletBalance,
+        pending_payments: pendingBalance,
+        active_loans: activeLoans,
+      });
+    }
+
+    // 9. Create loan
     const loanId = uuidv4();
     const loanNumber = generateLoanNumber();
 
+    const today = new Date();
+
+    const dueDate = new Date(today);
+    dueDate.setMonth(dueDate.getMonth() + Number(tenure || 1));
+
     await connection.execute(
       `INSERT INTO loans (
-        id,
-        loan_number,
-        farmer_id,
-        coop_id,
-        loan_type,
-        principal,
-        current_balance,
-        date_issued,
-        due_date,
-        status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?)`,
+    id,
+    loan_number,
+    farmer_id,
+    coop_id,
+    loan_type,
+    principal,
+    current_balance,
+    date_issued,
+    due_date,
+    status
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?)`,
       [
         loanId,
         loanNumber,
@@ -67,12 +145,13 @@ export async function createLoan(req, res) {
         coopId,
         loan_type || "general",
         principal,
-        principal, // initial balance = full amount
-        due_date,
+        principal,
+        dueDate,
         "pending",
       ],
     );
 
+    // 10. Audit log
     await logAudit({
       user_id: coopAdminId,
       coop_id: coopId,
@@ -85,6 +164,7 @@ export async function createLoan(req, res) {
         loan_type,
         principal,
         due_date,
+        loan_limit: calculatedLimit,
       },
       ip_address: req.ip,
       user_agent: req.get("user-agent"),
@@ -99,6 +179,8 @@ export async function createLoan(req, res) {
         loan_number: loanNumber,
         farmer_id,
         principal,
+        tenure,
+        due_date: dueDate,
         current_balance: principal,
         status: "pending",
       },
@@ -113,6 +195,59 @@ export async function createLoan(req, res) {
     });
   } finally {
     connection.release();
+  }
+}
+
+export async function getLoanEligibility(req, res) {
+  try {
+    const coopId = req.user.coop_id;
+    const { farmer_id } = req.params;
+
+    // wallet
+    const [walletRows] = await pool.execute(
+      `SELECT balance FROM farmer_wallets WHERE farmer_id = ? AND coop_id = ?`,
+      [farmer_id, coopId],
+    );
+
+    const walletBalance = Number(walletRows[0]?.balance || 0);
+
+    // pending payments
+    const [pendingRows] = await pool.execute(
+      `SELECT COALESCE(SUM(balance),0) AS pending_balance
+       FROM pending_payments
+       WHERE farmer_id = ? AND coop_id = ?`,
+      [farmer_id, coopId],
+    );
+
+    const pendingBalance = Number(pendingRows[0].pending_balance || 0);
+
+    // active loans
+    const [loanRows] = await pool.execute(
+      `SELECT COALESCE(SUM(current_balance),0) AS active_loans
+       FROM loans
+       WHERE farmer_id = ?
+       AND coop_id = ?
+       AND status IN ('pending','approved','disbursed')`,
+      [farmer_id, coopId],
+    );
+
+    const activeLoans = Number(loanRows[0].active_loans || 0);
+
+    // formula
+    const loanLimit = Math.max(
+      (walletBalance + pendingBalance - activeLoans) * 0.5,
+      0,
+    );
+
+    return res.json({
+      walletBalance,
+      pendingBalance,
+      activeLoans,
+      loanLimit,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Server error" });
   }
 }
 

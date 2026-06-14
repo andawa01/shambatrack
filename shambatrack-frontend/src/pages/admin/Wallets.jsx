@@ -175,9 +175,10 @@ const Wallets = () => {
 
       {/* Analytics Summary Value Matrix Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {/* 1. Wallet Balance */}
         <div className="bg-gradient-to-br from-emerald-600 to-emerald-700 p-4 sm:p-5 rounded-2xl shadow-md border border-emerald-600 text-white relative overflow-hidden">
           <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-100 opacity-90 block mb-1">
-            Available Reserve Balance
+            Wallet Balance
           </span>
           <h2 className="text-xl sm:text-2xl font-black tracking-tight">
             KES{" "}
@@ -190,18 +191,10 @@ const Wallets = () => {
           </div>
         </div>
 
+        {/* 2. Pending Payment */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-sm">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-            Pending Invoice Accounts
-          </span>
-          <h2 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">
-            {summary.total_pending || 0} Records
-          </h2>
-        </div>
-
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-            Total Outstanding Liability
+            Pending Payment
           </span>
           <h2
             className={`text-xl sm:text-2xl font-black tracking-tight ${
@@ -217,13 +210,27 @@ const Wallets = () => {
           </h2>
         </div>
 
+        {/* 3. Loans Given */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-sm">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-            Historical Settled Aggregate
+            Loans Given
           </span>
           <h2 className="text-xl sm:text-2xl font-black text-blue-600 tracking-tight">
             KES{" "}
-            {Number(summary.total_paid || 0).toLocaleString(undefined, {
+            {Number(summary.total_loans || 0).toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+            })}
+          </h2>
+        </div>
+
+        {/* 4. Overdue Amount in Loans */}
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-sm">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+            Overdue Amount in Loans
+          </span>
+          <h2 className="text-xl sm:text-2xl font-black text-rose-600 tracking-tight">
+            KES{" "}
+            {Number(summary.overdue_amount || 0).toLocaleString(undefined, {
               minimumFractionDigits: 2,
             })}
           </h2>
@@ -319,7 +326,11 @@ const Wallets = () => {
                           Net Due Balance:
                         </span>
                         <span
-                          className={`px-2 py-0.5 rounded text-[11px] sm:text-xs font-bold inline-block ${isInsufficient ? "bg-rose-100 text-rose-700" : "bg-emerald-50 text-emerald-800"}`}
+                          className={`px-2 py-0.5 rounded text-[11px] sm:text-xs font-bold inline-block ${
+                            isInsufficient
+                              ? "bg-rose-100 text-rose-700"
+                              : "bg-emerald-50 text-emerald-800"
+                          }`}
                         >
                           KES{" "}
                           {Number(payment.balance).toLocaleString(undefined, {
@@ -408,14 +419,18 @@ const Wallets = () => {
                         Transaction Scope:
                       </span>
                       <span
-                        className={`inline-block w-2 h-2 rounded-full mr-2 ${isDeposit ? "bg-green-500" : "bg-blue-500"}`}
+                        className={`inline-block w-2 h-2 rounded-full mr-2 ${
+                          isDeposit ? "bg-green-500" : "bg-blue-500"
+                        }`}
                       ></span>
                       {tx.transaction_type}
                     </td>
 
                     {/* Transferred Gross */}
                     <td
-                      className={`px-0 md:px-6 md:py-4 font-bold text-sm ${isDeposit ? "text-green-600" : "text-slate-800"}`}
+                      className={`px-0 md:px-6 md:py-4 font-bold text-sm ${
+                        isDeposit ? "text-green-600" : "text-slate-800"
+                      }`}
                     >
                       <span className="inline md:hidden text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-0.5 text-slate-400">
                         Transferred Gross:

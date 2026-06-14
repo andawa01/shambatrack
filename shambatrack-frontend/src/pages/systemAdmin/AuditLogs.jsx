@@ -227,9 +227,7 @@ export default function AuditLogs() {
                             Author:
                           </span>
                           <span className="font-mono text-[10px] sm:text-xs text-slate-600 bg-slate-100 px-2 py-0.5 sm:py-1 rounded border border-slate-200">
-                            {log.user_id
-                              ? String(log.user_id).slice(-8)
-                              : "SYSTEM"}
+                            {log.user_name || "SYSTEM"}
                           </span>
                         </td>
 

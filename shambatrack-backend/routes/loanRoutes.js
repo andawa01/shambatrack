@@ -8,6 +8,7 @@ import {
   loanSummary,
   getOverdueLoans,
   getLoanById,
+  getLoanEligibility,
 } from "../controllers/loanController.js";
 import { authMiddleware, requireRole } from "../middleware/authMiddleware.js";
 
@@ -43,5 +44,7 @@ router.get(
 );
 
 router.get("/:id", authMiddleware, requireRole("coop_admin"), getLoanById);
+
+router.get("/eligibility/:farmer_id", authMiddleware, getLoanEligibility);
 
 export default router;

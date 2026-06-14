@@ -2,6 +2,7 @@ import pool from "../config/mysql.js";
 import bcrypt from "bcrypt";
 import { v4 as uuidv4 } from "uuid";
 import { logAudit } from "../utils/auditLogger.js";
+import { sendSMS } from "../services/smsService.js";
 
 export async function createFarmer(req, res) {
   const connection = await pool.getConnection();
@@ -129,6 +130,43 @@ export async function createFarmer(req, res) {
 
     await connection.commit();
 
+    // Send SMS
+    try {
+      await sendSMS(
+        phone,
+        `Welcome to the cooperative.
+
+Username: ${username}
+Password: ${password}
+
+You can now access your farmer account.`,
+      );
+    } catch (smsError) {
+      console.error("SMS sending failed:", smsError);
+    }
+
+    // Send Email
+    if (email) {
+      try {
+        await sendEmail({
+          to: email,
+          subject: "Farmer Account Created",
+          html: `
+        <h2>Welcome to the Cooperative</h2>
+
+        <p>Your farmer account has been created successfully.</p>
+
+        <p><strong>Username:</strong> ${username}</p>
+        <p><strong>Password:</strong> ${password}</p>
+
+        <p>Please change your password after first login.</p>
+      `,
+        });
+      } catch (emailError) {
+        console.error("Email sending failed:", emailError);
+      }
+    }
+
     // Audit Log
     await logAudit({
       user_id: req.user.id,
@@ -225,7 +263,8 @@ export async function getFarmerById(req, res) {
     const cooperativeId = req.user.coop_id;
     const { id } = req.params;
 
-    const [rows] = await pool.execute(
+    // Farmer Profile
+    const [farmerRows] = await pool.execute(
       `
       SELECT
           f.id,
@@ -243,22 +282,122 @@ export async function getFarmerById(req, res) {
           u.status
 
       FROM farmers f
-      INNER JOIN users u ON f.user_id = u.id
+      INNER JOIN users u
+          ON f.user_id = u.id
+
       WHERE f.id = ?
-        AND f.cooperative_id = ?
+      AND f.cooperative_id = ?
       LIMIT 1
       `,
       [id, cooperativeId],
     );
 
-    if (rows.length === 0) {
+    if (farmerRows.length === 0) {
       return res.status(404).json({
         message: "Farmer not found in your cooperative",
       });
     }
 
+    // Wallet
+    const [walletRows] = await pool.execute(
+      `
+      SELECT
+        balance,
+        loan_balance,
+        loan_limit
+      FROM farmer_wallets
+      WHERE farmer_id = ?
+      `,
+      [id],
+    );
+
+    // Active Loans
+    const [loanRows] = await pool.execute(
+      `
+      SELECT
+        id,
+        loan_number,
+        loan_type,
+        principal,
+        current_balance,
+        date_issued,
+        due_date,
+        status
+      FROM loans
+      WHERE farmer_id = ?
+      AND coop_id = ?
+      AND status IN ('approved', 'disbursed')
+      ORDER BY date_issued DESC
+      `,
+      [id, cooperativeId],
+    );
+
+    // Pending Payments
+    const [pendingPaymentRows] = await pool.execute(
+      `
+      SELECT
+        pp.delivery_id,
+        pp.amount,
+        pp.balance,
+        pp.total_paid,
+
+        d.quantity,
+        d.date,
+
+        p.name AS product_name
+      FROM pending_payments pp
+      INNER JOIN deliveries d
+        ON pp.delivery_id = d.id
+      INNER JOIN products p
+        ON d.product_id = p.id
+
+      WHERE pp.farmer_id = ?
+      AND pp.coop_id = ?
+      ORDER BY d.date DESC
+      `,
+      [id, cooperativeId],
+    );
+
+    // Recent Deliveries
+    const [deliveryRows] = await pool.execute(
+      `
+      SELECT
+        d.id,
+        d.quantity,
+        d.unit_price,
+        d.total_amount,
+        d.date,
+        d.quality,
+
+        p.name AS product_name,
+        p.unit
+
+      FROM deliveries d
+      INNER JOIN products p
+        ON d.product_id = p.id
+
+      WHERE d.farmer_id = ?
+      AND d.coop_id = ?
+      ORDER BY d.date DESC
+      LIMIT 20
+      `,
+      [id, cooperativeId],
+    );
+
     return res.status(200).json({
-      farmer: rows[0],
+      farmer: farmerRows[0],
+
+      wallet: walletRows[0] || {
+        balance: 0,
+        loan_balance: 0,
+        loan_limit: 0,
+      },
+
+      active_loans: loanRows,
+
+      pending_payments: pendingPaymentRows,
+
+      deliveries: deliveryRows,
     });
   } catch (error) {
     console.error("Get farmer by id error:", error);
@@ -610,33 +749,36 @@ export async function getDeliveries(req, res) {
 
     const [deliveries] = await pool.execute(
       `
-      SELECT
-        d.id,
-        d.quantity,
-        d.unit_price,
-        d.total_amount,
-        d.quality,
-        d.date,
+  SELECT
+    d.id,
+    d.farmer_id,
+    d.product_id,
+    d.quantity,
+    d.unit_price,
+    d.total_amount,
+    d.quality,
+    d.date,
 
-        p.name AS product_name,
+    p.name AS product_name,
+    p.unit AS unit,
 
-        u.name AS farmer_name
+    u.name AS farmer_name
 
-      FROM deliveries d
+  FROM deliveries d
 
-      INNER JOIN products p
-        ON d.product_id = p.id
+  INNER JOIN products p
+    ON d.product_id = p.id
 
-      INNER JOIN farmers f
-        ON d.farmer_id = f.id
+  INNER JOIN farmers f
+    ON d.farmer_id = f.id
 
-      INNER JOIN users u
-        ON f.user_id = u.id
+  INNER JOIN users u
+    ON f.user_id = u.id
 
-      WHERE d.coop_id = ?
+  WHERE d.coop_id = ?
 
-      ORDER BY d.date DESC
-      `,
+  ORDER BY d.date DESC
+  `,
       [coopId],
     );
 
@@ -660,27 +802,28 @@ export async function getDeliveryById(req, res) {
 
     const [rows] = await pool.execute(
       `
-      SELECT
-        d.*,
+  SELECT
+    d.*,
 
-        p.name AS product_name,
+    p.name AS product_name,
+    p.unit AS unit,
 
-        u.name AS farmer_name
+    u.name AS farmer_name
 
-      FROM deliveries d
+  FROM deliveries d
 
-      INNER JOIN products p
-        ON d.product_id = p.id
+  INNER JOIN products p
+    ON d.product_id = p.id
 
-      INNER JOIN farmers f
-        ON d.farmer_id = f.id
+  INNER JOIN farmers f
+    ON d.farmer_id = f.id
 
-      INNER JOIN users u
-        ON f.user_id = u.id
+  INNER JOIN users u
+    ON f.user_id = u.id
 
-      WHERE d.id = ?
-      AND d.coop_id = ?
-      `,
+  WHERE d.id = ?
+  AND d.coop_id = ?
+  `,
       [id, coopId],
     );
 
@@ -809,6 +952,9 @@ export async function getCoopAdminDashboard(req, res) {
   try {
     const coopId = req.user.coop_id;
 
+    // ======================
+    // BASIC STATS
+    // ======================
     const [totalDeliveries] = await pool.execute(
       "SELECT COUNT(*) AS count FROM deliveries WHERE coop_id = ?",
       [coopId],
@@ -843,7 +989,78 @@ export async function getCoopAdminDashboard(req, res) {
       [coopId],
     );
 
+    // ======================
+    //  WALLET VS PENDING (PIE)
+    // ======================
+    const [[wallet]] = await pool.execute(
+      "SELECT balance FROM cooperative_wallets WHERE coop_id = ?",
+      [coopId],
+    );
+
+    const [[pendingPayments]] = await pool.execute(
+      `
+      SELECT SUM(balance) AS pending_amount
+      FROM pending_payments
+      WHERE coop_id = ?
+      `,
+      [coopId],
+    );
+
+    // ======================
+    // PRODUCTS VS QUANTITY (BAR)
+    // ======================
+    const [productStats] = await pool.execute(
+      `
+      SELECT 
+        p.name AS product,
+        COALESCE(SUM(d.quantity), 0) AS quantity
+      FROM products p
+      LEFT JOIN deliveries d 
+        ON d.product_id = p.id
+      WHERE p.coop_id = ?
+      GROUP BY p.id, p.name
+      ORDER BY quantity DESC
+      LIMIT 10
+      `,
+      [coopId],
+    );
+
+    // ======================
+    // TOP FARMERS ANALYTICS
+    // ======================
+    const [topFarmers] = await pool.execute(
+      `SELECT 
+  f.id,
+  u.name AS farmer_name,
+
+  COALESCE(SUM(d.quantity), 0) AS total_quantity,
+  COALESCE(COUNT(l.id), 0) AS loans_taken,
+  COALESCE(SUM(l.principal), 0) AS total_loans,
+
+  COALESCE(w.balance, 0) AS wallet_balance,
+  COALESCE(w.loan_balance, 0) AS loan_balance
+
+FROM farmers f
+LEFT JOIN users u ON u.id = f.user_id
+LEFT JOIN deliveries d ON d.farmer_id = f.id
+LEFT JOIN loans l ON l.farmer_id = f.id
+LEFT JOIN farmer_wallets w ON w.farmer_id = f.id
+
+WHERE f.cooperative_id = ?
+
+GROUP BY 
+  f.id, 
+  u.name,
+  w.balance,
+  w.loan_balance
+
+ORDER BY total_quantity DESC
+LIMIT 5`,
+      [coopId],
+    );
+
     return res.status(200).json({
+      // existing stats
       totalDeliveries: totalDeliveries[0].count,
       totalProducts: totalProducts[0].count,
       totalCooperatives: cooperatives[0].count,
@@ -851,6 +1068,33 @@ export async function getCoopAdminDashboard(req, res) {
       totalLoans: totalLoans[0].count,
       pendingLoans: pendingLoans[0].count,
       cooperative: coopInfo[0] || null,
+
+      // wallet summary
+      wallet_balance: Number(wallet?.balance || 0),
+      pending_amount: Number(pendingPayments?.pending_amount || 0),
+
+      // charts
+      wallet_vs_pending: {
+        wallet: Number(wallet?.balance || 0),
+        pending: Number(pendingPayments?.pending_amount || 0),
+      },
+
+      products_vs_quantity: productStats,
+
+      top_farmers: topFarmers.map((f) => ({
+        id: f.id,
+        farmer: f.farmer_name || "Unknown Farmer",
+
+        quantity: Number(f.total_quantity || 0),
+        loans_taken: Number(f.loans_taken || 0),
+        total_loans: Number(f.total_loans || 0),
+
+        wallet_balance: Number(f.wallet_balance || 0),
+        loan_balance: Number(f.loan_balance || 0),
+
+        // REAL financial logic
+        net_worth: Number(f.wallet_balance || 0) - Number(f.loan_balance || 0),
+      })),
     });
   } catch (error) {
     console.error("Get coop admin dashboard error:", error);

@@ -8,6 +8,9 @@ const Farmer = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedFarmer, setSelectedFarmer] = useState(null);
+  const [showProfile, setShowProfile] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
@@ -33,8 +36,26 @@ const Farmer = () => {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchFarmers();
   }, []);
+
+  const viewFarmerProfile = async (farmerId) => {
+    try {
+      setProfileLoading(true);
+
+      const res = await api.get(`/coop-admin/farmers/${farmerId}`);
+
+      setSelectedFarmer(res.data);
+      setShowProfile(true);
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message || "Failed to load farmer profile",
+      );
+    } finally {
+      setProfileLoading(false);
+    }
+  };
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -119,8 +140,7 @@ const Farmer = () => {
             if (f.id === id) {
               return {
                 ...f,
-                status:
-                  currentStatus === "active" ? "inactive" : "active",
+                status: currentStatus === "active" ? "inactive" : "active",
               };
             }
             return f;
@@ -146,7 +166,8 @@ const Farmer = () => {
             Farmer Database Directory
           </h1>
           <p className="text-xs font-medium text-slate-400 mt-0.5">
-            Manage and audit member registries, profiles, and systemic workflow accounts.
+            Manage and audit member registries, profiles, and systemic workflow
+            accounts.
           </p>
         </div>
 
@@ -345,43 +366,65 @@ const Farmer = () => {
                   <th className="px-6 py-4">National ID Record</th>
                   <th className="px-6 py-4">Location Sector</th>
                   <th className="px-6 py-4 text-center">Operational Status</th>
-                  <th className="px-6 py-4 text-right">Administrative Actions</th>
+                  <th className="px-6 py-4 text-right">
+                    Administrative Actions
+                  </th>
                 </tr>
               </thead>
 
               <tbody className="divide-y divide-slate-100/80 text-xs sm:text-sm text-slate-600 flex flex-col md:table-row-group">
                 {farmers.map((f) => (
-                  <tr key={f.id} className="hover:bg-slate-50/40 transition flex flex-col md:table-row p-4 md:p-0 gap-2 md:gap-0 border-b md:border-b-0 border-slate-100">
-                    
+                  <tr
+                    key={f.id}
+                    className="hover:bg-slate-50/40 transition flex flex-col md:table-row p-4 md:p-0 gap-2 md:gap-0 border-b md:border-b-0 border-slate-100"
+                  >
                     {/* Farmer Details Column */}
                     <td className="px-0 md:px-6 md:py-4">
-                      <span className="inline md:hidden text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-0.5">Farmer Details:</span>
-                      <div className="font-bold text-slate-800 text-sm md:text-base">{f.name}</div>
-                      <div className="text-xs text-slate-400 mt-0.5">{f.phone}</div>
+                      <span className="inline md:hidden text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-0.5">
+                        Farmer Details:
+                      </span>
+                      <div className="font-bold text-slate-800 text-sm md:text-base">
+                        {f.name}
+                      </div>
+                      <div className="text-xs text-slate-400 mt-0.5">
+                        {f.phone}
+                      </div>
                     </td>
 
                     {/* Account Identity Column */}
                     <td className="px-0 md:px-6 md:py-4">
-                      <span className="inline md:hidden text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-0.5">Account Identity:</span>
-                      <div className="font-mono text-xs text-slate-600">@{f.username}</div>
-                      <div className="text-xs text-slate-400 mt-0.5">{f.email || "—"}</div>
+                      <span className="inline md:hidden text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-0.5">
+                        Account Identity:
+                      </span>
+                      <div className="font-mono text-xs text-slate-600">
+                        @{f.username}
+                      </div>
+                      <div className="text-xs text-slate-400 mt-0.5">
+                        {f.email || "—"}
+                      </div>
                     </td>
 
                     {/* National ID Record Column */}
                     <td className="px-0 md:px-6 md:py-4 font-medium text-slate-700">
-                      <span className="inline md:hidden text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-0.5">National ID:</span>
+                      <span className="inline md:hidden text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-0.5">
+                        National ID:
+                      </span>
                       {f.nid}
                     </td>
 
                     {/* Location Sector Column */}
                     <td className="px-0 md:px-6 md:py-4 text-xs text-slate-500 md:max-w-[180px] md:truncate">
-                      <span className="inline md:hidden text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-0.5">Location:</span>
+                      <span className="inline md:hidden text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-0.5">
+                        Location:
+                      </span>
                       {f.location || "Not configured"}
                     </td>
 
                     {/* Operational Status Column */}
                     <td className="px-0 md:px-6 md:py-4 text-left md:text-center">
-                      <span className="inline md:hidden text-[10px] uppercase font-bold text-slate-400 tracking-wider mr-2">Status:</span>
+                      <span className="inline md:hidden text-[10px] uppercase font-bold text-slate-400 tracking-wider mr-2">
+                        Status:
+                      </span>
                       <span
                         className={`inline-flex items-center px-2.5 py-0.5 md:py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${
                           f.status === "active"
@@ -411,12 +454,302 @@ const Farmer = () => {
                       >
                         {f.status === "active" ? "Deactivate" : "Activate"}
                       </button>
-                    </td>
 
+                      <button
+                        onClick={() => viewFarmerProfile(f.id)}
+                        className="text-xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-2 md:py-1.5 rounded-lg transition inline-block"
+                      >
+                        View
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+      {/* Farmer Profile Modal */}
+      {showProfile && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-6xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl">
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-slate-800">
+                  Farmer Profile
+                </h2>
+
+                {selectedFarmer?.farmer && (
+                  <p className="text-sm text-slate-500">
+                    {selectedFarmer.farmer.name}
+                  </p>
+                )}
+              </div>
+
+              <button
+                onClick={() => {
+                  setShowProfile(false);
+                  setSelectedFarmer(null);
+                }}
+                className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium"
+              >
+                Close
+              </button>
+            </div>
+
+            {profileLoading ? (
+              <div className="p-10 text-center">
+                <div className="w-10 h-10 border-4 border-slate-200 border-t-green-600 rounded-full animate-spin mx-auto"></div>
+                <p className="mt-4 text-slate-500">Loading farmer profile...</p>
+              </div>
+            ) : (
+              selectedFarmer && (
+                <div className="p-6 space-y-6">
+                  {/* Farmer Details */}
+                  <div className="bg-slate-50 rounded-xl p-5">
+                    <h3 className="font-bold text-slate-800 mb-4">
+                      Farmer Information
+                    </h3>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <p className="text-slate-400">Full Name</p>
+                        <p className="font-medium">
+                          {selectedFarmer.farmer.name}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-slate-400">Username</p>
+                        <p className="font-medium">
+                          @{selectedFarmer.farmer.username}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-slate-400">Status</p>
+                        <p className="font-medium">
+                          {selectedFarmer.farmer.status}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-slate-400">Phone</p>
+                        <p>{selectedFarmer.farmer.phone}</p>
+                      </div>
+
+                      <div>
+                        <p className="text-slate-400">Email</p>
+                        <p>{selectedFarmer.farmer.email || "-"}</p>
+                      </div>
+
+                      <div>
+                        <p className="text-slate-400">National ID</p>
+                        <p>{selectedFarmer.farmer.nid}</p>
+                      </div>
+
+                      <div>
+                        <p className="text-slate-400">Location</p>
+                        <p>{selectedFarmer.farmer.location || "-"}</p>
+                      </div>
+
+                      <div>
+                        <p className="text-slate-400">Created</p>
+                        <p>
+                          {new Date(
+                            selectedFarmer.farmer.created_at,
+                          ).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Wallet Summary */}
+                  <div>
+                    <h3 className="font-bold text-slate-800 mb-4">
+                      Wallet Summary
+                    </h3>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="bg-green-50 border border-green-100 rounded-xl p-5">
+                        <p className="text-sm text-slate-500">Wallet Balance</p>
+
+                        <h4 className="text-2xl font-bold text-green-700">
+                          KES {selectedFarmer.wallet?.balance || 0}
+                        </h4>
+                      </div>
+
+                      <div className="bg-amber-50 border border-amber-100 rounded-xl p-5">
+                        <p className="text-sm text-slate-500">Loan Balance</p>
+
+                        <h4 className="text-2xl font-bold text-amber-700">
+                          KES {selectedFarmer.wallet?.loan_balance || 0}
+                        </h4>
+                      </div>
+
+                      <div className="bg-blue-50 border border-blue-100 rounded-xl p-5">
+                        <p className="text-sm text-slate-500">Loan Limit</p>
+
+                        <h4 className="text-2xl font-bold text-blue-700">
+                          KES {selectedFarmer.wallet?.loan_limit || 0}
+                        </h4>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Active Loans */}
+                  <div>
+                    <h3 className="font-bold text-slate-800 mb-4">
+                      Active Loans
+                    </h3>
+
+                    {selectedFarmer.active_loans?.length > 0 ? (
+                      <div className="overflow-x-auto border rounded-xl">
+                        <table className="w-full text-sm">
+                          <thead className="bg-slate-50">
+                            <tr>
+                              <th className="px-4 py-3 text-left">
+                                Loan Number
+                              </th>
+                              <th className="px-4 py-3 text-left">Type</th>
+                              <th className="px-4 py-3 text-left">Principal</th>
+                              <th className="px-4 py-3 text-left">Balance</th>
+                              <th className="px-4 py-3 text-left">Due Date</th>
+                              <th className="px-4 py-3 text-left">Status</th>
+                            </tr>
+                          </thead>
+
+                          <tbody>
+                            {selectedFarmer.active_loans.map((loan) => (
+                              <tr key={loan.id} className="border-t">
+                                <td className="px-4 py-3">
+                                  {loan.loan_number}
+                                </td>
+                                <td className="px-4 py-3">{loan.loan_type}</td>
+                                <td className="px-4 py-3">
+                                  KES {loan.principal}
+                                </td>
+                                <td className="px-4 py-3">
+                                  KES {loan.current_balance}
+                                </td>
+                                <td className="px-4 py-3">
+                                  {new Date(loan.due_date).toLocaleDateString()}
+                                </td>
+                                <td className="px-4 py-3">{loan.status}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="bg-slate-50 rounded-xl p-5 text-sm text-slate-500">
+                        No active loans found.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Pending Payments */}
+                  <div>
+                    <h3 className="font-bold text-slate-800 mb-4">
+                      Pending Payments
+                    </h3>
+
+                    {selectedFarmer.pending_payments?.length > 0 ? (
+                      <div className="grid gap-3">
+                        {selectedFarmer.pending_payments.map((payment) => (
+                          <div
+                            key={payment.delivery_id}
+                            className="border rounded-xl p-4"
+                          >
+                            <div className="font-semibold">
+                              {payment.product_name}
+                            </div>
+
+                            <div className="text-sm text-slate-500 mt-2">
+                              Amount: KES {payment.amount}
+                            </div>
+
+                            <div className="text-sm text-slate-500">
+                              Balance: KES {payment.balance}
+                            </div>
+
+                            <div className="text-sm text-slate-500">
+                              Paid: KES {payment.total_paid}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="bg-slate-50 rounded-xl p-5 text-sm text-slate-500">
+                        No pending payments.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Deliveries */}
+                  <div>
+                    <h3 className="font-bold text-slate-800 mb-4">
+                      Product Deliveries
+                    </h3>
+
+                    {selectedFarmer.deliveries?.length > 0 ? (
+                      <div className="overflow-x-auto border rounded-xl">
+                        <table className="w-full text-sm">
+                          <thead className="bg-slate-50">
+                            <tr>
+                              <th className="px-4 py-3 text-left">Product</th>
+                              <th className="px-4 py-3 text-left">Quantity</th>
+                              <th className="px-4 py-3 text-left">
+                                Unit Price
+                              </th>
+                              <th className="px-4 py-3 text-left">
+                                Total Amount
+                              </th>
+                              <th className="px-4 py-3 text-left">Quality</th>
+                              <th className="px-4 py-3 text-left">Date</th>
+                            </tr>
+                          </thead>
+
+                          <tbody>
+                            {selectedFarmer.deliveries.map((delivery) => (
+                              <tr key={delivery.id} className="border-t">
+                                <td className="px-4 py-3">
+                                  {delivery.product_name}
+                                </td>
+
+                                <td className="px-4 py-3">
+                                  {delivery.quantity} {delivery.unit}
+                                </td>
+
+                                <td className="px-4 py-3">
+                                  KES {delivery.unit_price}
+                                </td>
+
+                                <td className="px-4 py-3">
+                                  KES {delivery.total_amount}
+                                </td>
+
+                                <td className="px-4 py-3">
+                                  {delivery.quality}
+                                </td>
+
+                                <td className="px-4 py-3">
+                                  {new Date(delivery.date).toLocaleDateString()}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="bg-slate-50 rounded-xl p-5 text-sm text-slate-500">
+                        No deliveries found.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            )}
           </div>
         </div>
       )}

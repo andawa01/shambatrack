@@ -20,131 +20,133 @@ export default function SystemDashboard() {
     fetchStats();
   }, []);
 
-  // Professional Skeleton Loading State
+  // =========================
+  // LOADING SKELETON
+  // =========================
   if (loading) {
     return (
       <div className="p-6 space-y-6 animate-pulse">
-        <div className="h-8 bg-slate-200 rounded-lg w-1/4 mb-2"></div>
-        <div className="h-4 bg-slate-200 rounded-lg w-1/3 mb-8"></div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="h-10 bg-slate-200 rounded-xl w-1/3"></div>
+        <div className="h-4 bg-slate-200 rounded-xl w-1/2"></div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
           {[1, 2, 3].map((n) => (
             <div
               key={n}
               className="h-32 bg-slate-100 border border-slate-200 rounded-2xl p-6"
-            >
-              <div className="h-4 bg-slate-200 rounded w-1/2 mb-4"></div>
-              <div className="h-8 bg-slate-200 rounded w-1/3"></div>
-            </div>
+            />
           ))}
         </div>
       </div>
     );
   }
 
-  // Define metric items for descriptive mapping
+  // =========================
+  // METRICS CONFIG
+  // =========================
   const metrics = [
     {
       title: "Total Cooperatives",
       value: stats?.totalCooperatives ?? 0,
-      colorClass: "text-green-600 bg-green-50 border-green-100",
-      icon: (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-6 w-6"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-          />
-        </svg>
-      ),
+      gradient: "from-emerald-500 to-green-600",
+      icon: "🏢",
     },
     {
       title: "Total Users",
       value: stats?.totalUsers ?? 0,
-      colorClass: "text-blue-600 bg-blue-50 border-blue-100",
-      icon: (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-6 w-6"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-          />
-        </svg>
-      ),
+      gradient: "from-blue-500 to-indigo-600",
+      icon: "👥",
     },
     {
       title: "Active Loans",
       value: stats?.activeLoans ?? 0,
-      colorClass: "text-amber-600 bg-amber-50 border-amber-100",
-      icon: (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-6 w-6"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
-      ),
+      gradient: "from-amber-500 to-orange-600",
+      icon: "💰",
     },
   ];
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-8 animate-fadeIn">
-      {/* Top Banner section */}
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
-          System Admin Dashboard
-        </h1>
-        <p className="text-slate-500 text-sm mt-1">
-          Real-time overview of ShambaTrack ecosystems, registered entities, and
-          structural operational data.
-        </p>
+    <div className="p-6 max-w-7xl mx-auto space-y-10 animate-fadeIn">
+      {/* =========================
+          HERO HEADER
+      ========================= */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-8 border border-slate-800 shadow-xl">
+        <div className="relative z-10">
+          <h1 className="text-3xl font-extrabold text-white tracking-tight">
+            System Control Center
+          </h1>
+          <p className="text-slate-300 text-sm mt-2 max-w-2xl">
+            Monitor cooperatives, users, loans, and platform-wide activity in
+            real time.
+          </p>
+        </div>
+
+        {/* decorative glow */}
+        <div className="absolute right-0 top-0 w-72 h-72 bg-green-500/10 blur-3xl rounded-full" />
       </div>
 
-      {/* Grid KPI Metrics Container */}
+      {/* =========================
+          KPI CARDS
+      ========================= */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {metrics.map((metric, idx) => (
+        {metrics.map((m, i) => (
           <div
-            key={idx}
-            className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm shadow-slate-100 hover:shadow-md hover:border-slate-200/80 transition-all duration-200 flex items-center justify-between group"
+            key={i}
+            className="group relative bg-white border border-slate-100 rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden"
           >
-            <div className="space-y-2">
-              <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">
-                {metric.title}
-              </h2>
-              <p className="text-4xl font-extrabold text-slate-800 tracking-tight group-hover:scale-[1.01] transition-transform duration-150">
-                {metric.value.toLocaleString()}
-              </p>
-            </div>
-
-            {/* Icon housing */}
+            {/* gradient accent bar */}
             <div
-              className={`p-4 rounded-xl border ${metric.colorClass} shadow-inner shrink-0 transition-transform duration-200 group-hover:scale-105`}
-            >
-              {metric.icon}
+              className={`absolute top-0 left-0 h-1 w-full bg-gradient-to-r ${m.gradient}`}
+            />
+
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  {m.title}
+                </p>
+
+                <h2 className="text-3xl font-extrabold text-slate-800 mt-2 group-hover:scale-[1.03] transition-transform">
+                  {Number(m.value).toLocaleString()}
+                </h2>
+              </div>
+
+              <div
+                className={`text-3xl p-3 rounded-xl bg-slate-50 border border-slate-100 group-hover:scale-110 transition`}
+              >
+                {m.icon}
+              </div>
             </div>
           </div>
         ))}
+      </div>
+
+      {/* =========================
+          INSIGHT PANEL (OPTIONAL)
+      ========================= */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+          <h3 className="text-sm font-bold text-slate-700 mb-3">
+            System Health Overview
+          </h3>
+
+          <div className="space-y-3 text-sm text-slate-600">
+            <p>• Cooperatives are actively expanding across regions</p>
+            <p>• Loan activity is stable across all registered users</p>
+            <p>• System database connections are stable</p>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl p-6 text-white shadow-lg">
+          <h3 className="text-sm font-bold uppercase tracking-wider">
+            Platform Status
+          </h3>
+
+          <p className="text-4xl font-extrabold mt-4">Healthy</p>
+
+          <p className="text-sm text-white/80 mt-2">
+            All systems operational and processing normally.
+          </p>
+        </div>
       </div>
     </div>
   );

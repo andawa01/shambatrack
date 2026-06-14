@@ -417,6 +417,7 @@ export async function walletSummary(req, res) {
   try {
     const coopId = req.user.coop_id;
 
+    // 1. Cooperative wallet balance
     const [[wallet]] = await pool.execute(
       `
       SELECT balance
@@ -426,26 +427,63 @@ export async function walletSummary(req, res) {
       [coopId],
     );
 
+    // 2. Pending payments summary
     const [[pending]] = await pool.execute(
       `
       SELECT
         COUNT(*) AS total_pending,
-        SUM(balance) AS pending_amount,
-        SUM(total_paid) AS total_paid
+        COALESCE(SUM(balance),0) AS pending_amount,
+        COALESCE(SUM(total_paid),0) AS total_paid
       FROM pending_payments
       WHERE coop_id = ?
       `,
       [coopId],
     );
 
+    // 3. Loans summary (ALL loans issued)
+    const [[loans]] = await pool.execute(
+      `
+      SELECT
+        COALESCE(SUM(principal),0) AS total_loans,
+        COALESCE(SUM(current_balance),0) AS outstanding_loans
+      FROM loans
+      WHERE coop_id = ?
+      `,
+      [coopId],
+    );
+
+    // 4. Overdue loans (past due date and not fully paid)
+    const [[overdue]] = await pool.execute(
+      `
+      SELECT
+        COALESCE(SUM(current_balance),0) AS overdue_amount,
+        COUNT(*) AS overdue_count
+      FROM loans
+      WHERE coop_id = ?
+        AND due_date < NOW()
+        AND status != 'fully_paid'
+      `,
+      [coopId],
+    );
+
     return res.status(200).json({
       wallet_balance: Number(wallet?.balance || 0),
+
+      // Pending payments
       total_pending: Number(pending?.total_pending || 0),
       pending_amount: Number(pending?.pending_amount || 0),
       total_paid: Number(pending?.total_paid || 0),
+
+      // Loans
+      total_loans: Number(loans?.total_loans || 0),
+      outstanding_loans: Number(loans?.outstanding_loans || 0),
+
+      // Overdue
+      overdue_amount: Number(overdue?.overdue_amount || 0),
+      overdue_count: Number(overdue?.overdue_count || 0),
     });
   } catch (error) {
-    console.error(error);
+    console.error("walletSummary error:", error);
 
     return res.status(500).json({
       message: "Server error",

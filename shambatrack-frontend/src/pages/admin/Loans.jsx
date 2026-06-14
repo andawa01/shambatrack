@@ -10,12 +10,13 @@ const Loans = () => {
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [processingId, setProcessingId] = useState(null);
+  const [eligibility, setEligibility] = useState(null);
 
   const [form, setForm] = useState({
     farmer_id: "",
     loan_type: "",
     principal: "",
-    due_date: "",
+    tenure: "",
   });
 
   const fetchLoans = async () => {
@@ -62,6 +63,22 @@ const Loans = () => {
     loadAllData();
   }, []);
 
+  useEffect(() => {
+    const fetchEligibility = async () => {
+      if (!form.farmer_id) return;
+
+      try {
+        const res = await api.get(`/loans/eligibility/${form.farmer_id}`);
+
+        setEligibility(res.data);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchEligibility();
+  }, [form.farmer_id]);
+
   const handleChange = (e) => {
     setForm({
       ...form,
@@ -80,11 +97,23 @@ const Loans = () => {
         id: progressToast,
       });
 
+      if (
+        eligibility &&
+        Number(form.principal) > Number(eligibility.loanLimit)
+      ) {
+        toast.error(
+          `Loan exceeds limit. Max allowed: KES ${Number(
+            eligibility.loanLimit,
+          ).toLocaleString()}`,
+        );
+        return;
+      }
+
       setForm({
         farmer_id: "",
         loan_type: "",
         principal: "",
-        due_date: "",
+        tenure: "",
       });
       setShowForm(false);
       await Promise.all([fetchLoans(), fetchSummary()]);
@@ -290,7 +319,7 @@ const Loans = () => {
                     .filter((f) => f.status === "active")
                     .map((farmer) => (
                       <option key={farmer.id} value={farmer.id}>
-                        {farmer.name} — {farmer.phone}
+                        {farmer.name}
                       </option>
                     ))}
                 </select>
@@ -333,18 +362,50 @@ const Loans = () => {
               />
             </div>
 
+            {eligibility && (
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-1">
+                <p className="font-bold text-slate-700">
+                  Loan Capacity Analysis
+                </p>
+
+                <p>
+                  Wallet: KES{" "}
+                  {Number(eligibility.walletBalance).toLocaleString()}
+                </p>
+                <p>
+                  Pending: KES{" "}
+                  {Number(eligibility.pendingBalance).toLocaleString()}
+                </p>
+                <p>
+                  Active Loans: KES{" "}
+                  {Number(eligibility.activeLoans).toLocaleString()}
+                </p>
+
+                <p className="font-black text-green-600">
+                  Available Limit: KES{" "}
+                  {Number(eligibility.loanLimit).toLocaleString()}
+                </p>
+              </div>
+            )}
+
             <div className="space-y-1">
               <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Maturity Settlement Date
+                Loan Due Date
               </label>
-              <input
-                type="date"
-                name="due_date"
-                value={form.due_date}
+
+              <select
+                name="tenure"
+                value={form.tenure}
                 onChange={handleChange}
                 required
                 className="w-full bg-slate-50 border border-slate-200/80 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-green-500 bg-white transition"
-              />
+              >
+                <option value="">Select Due Date</option>
+                <option value="1">1 Month</option>
+                <option value="3">3 Months</option>
+                <option value="6">6 Months</option>
+                <option value="12">12 Months</option>
+              </select>
             </div>
           </div>
 
@@ -497,7 +558,7 @@ const Loans = () => {
                         >
                           {processingId === loan.id
                             ? "Processing..."
-                            : "Approve Account"}
+                            : "Approve Loan"}
                         </button>
                       )}
 
@@ -521,7 +582,7 @@ const Loans = () => {
                         >
                           {processingId === loan.id
                             ? "Logging..."
-                            : "Log Repayment"}
+                            : "Loan Repayment"}
                         </button>
                       )}
 
