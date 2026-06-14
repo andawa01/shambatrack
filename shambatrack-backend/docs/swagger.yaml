@@ -6,7 +6,7 @@ info:
   description: Backend system for farmers, loans, wallets, products, deliveries, notifications and cooperative management.
 
 servers:
-  - url: http://localhost:5000/api
+  - url: https://shambatrack.onrender.com/api
 
 tags:
   - name: Auth
@@ -83,9 +83,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/LoginRequest'
+              $ref: "#/components/schemas/LoginRequest"
       responses:
-        '200':
+        "200":
           description: Login successful
 
   /auth/profile:
@@ -93,7 +93,7 @@ paths:
       tags: [Auth]
       summary: Get authenticated user profile
       responses:
-        '200':
+        "200":
           description: User profile returned
 
   /farmer/loans/apply:
@@ -101,7 +101,7 @@ paths:
       tags: [Farmer]
       summary: Apply for a loan
       responses:
-        '200':
+        "200":
           description: Loan application submitted
 
   /farmer/loans:
@@ -109,7 +109,7 @@ paths:
       tags: [Farmer]
       summary: Get my loans
       responses:
-        '200':
+        "200":
           description: Loan list
 
   /farmer/payments:
@@ -117,7 +117,7 @@ paths:
       tags: [Farmer]
       summary: Get wallet transactions
       responses:
-        '200':
+        "200":
           description: Transactions returned
 
   /farmer/products:
@@ -125,7 +125,7 @@ paths:
       tags: [Farmer]
       summary: Get available products
       responses:
-        '200':
+        "200":
           description: Product list
 
   /farmer/notifications:
@@ -133,7 +133,7 @@ paths:
       tags: [Farmer]
       summary: Get my notifications
       responses:
-        '200':
+        "200":
           description: Notifications returned
 
   /farmer/notifications/{id}/read:
@@ -147,7 +147,7 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Notification updated
 
   /farmer/dashboard:
@@ -155,7 +155,7 @@ paths:
       tags: [Dashboard]
       summary: Farmer dashboard
       responses:
-        '200':
+        "200":
           description: Dashboard summary
 
   /admin/farmers:
@@ -163,13 +163,13 @@ paths:
       tags: [Farmers]
       summary: Get all farmers
       responses:
-        '200':
+        "200":
           description: Farmers list
     post:
       tags: [Farmers]
       summary: Create farmer
       responses:
-        '201':
+        "201":
           description: Farmer created
 
   /admin/farmers/{id}:
@@ -182,7 +182,7 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        '200':
+        "200":
           description: Farmer details
     put:
       tags: [Farmers]
@@ -193,7 +193,7 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        '200':
+        "200":
           description: Farmer updated
 
   /admin/farmers/{id}/deactivate:
@@ -206,7 +206,7 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        '200':
+        "200":
           description: Farmer deactivated
 
   /admin/products:
@@ -214,13 +214,13 @@ paths:
       tags: [Products]
       summary: Get products
       responses:
-        '200':
+        "200":
           description: Product list
     post:
       tags: [Products]
       summary: Create product
       responses:
-        '201':
+        "201":
           description: Product created
 
   /admin/products/{id}:
@@ -233,7 +233,7 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        '200':
+        "200":
           description: Product details
     put:
       tags: [Products]
@@ -244,7 +244,7 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        '200':
+        "200":
           description: Product updated
     delete:
       tags: [Products]
@@ -255,7 +255,7 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        '200':
+        "200":
           description: Product deleted
 
   /admin/deliveries:
@@ -263,13 +263,13 @@ paths:
       tags: [Deliveries]
       summary: Get deliveries
       responses:
-        '200':
+        "200":
           description: Deliveries list
     post:
       tags: [Deliveries]
       summary: Record delivery
       responses:
-        '201':
+        "201":
           description: Delivery recorded
 
   /admin/loans:
@@ -277,7 +277,7 @@ paths:
       tags: [Loans]
       summary: Get all loans
       responses:
-        '200':
+        "200":
           description: Loans list
 
   /admin/loans/pending:
@@ -285,7 +285,7 @@ paths:
       tags: [Loans]
       summary: Get pending loans
       responses:
-        '200':
+        "200":
           description: Pending loans
 
   /admin/loans/{id}/approve:
@@ -298,7 +298,7 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        '200':
+        "200":
           description: Loan approved
 
   /admin/loans/{id}/disburse:
@@ -311,7 +311,7 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        '200':
+        "200":
           description: Loan disbursed
 
   /admin/payments/process:
@@ -319,7 +319,7 @@ paths:
       tags: [Payments]
       summary: Process payment
       responses:
-        '200':
+        "200":
           description: Payment processed
 
   /admin/wallets/cooperative:
@@ -327,7 +327,7 @@ paths:
       tags: [Wallets]
       summary: Get cooperative wallet
       responses:
-        '200':
+        "200":
           description: Wallet details
 
   /admin/wallets/cooperative/transactions:
@@ -335,7 +335,7 @@ paths:
       tags: [Wallets]
       summary: Get cooperative transactions
       responses:
-        '200':
+        "200":
           description: Transaction list
 
   /admin/wallets/farmers/{farmerId}:
@@ -348,7 +348,7 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        '200':
+        "200":
           description: Wallet details
 
   /admin/wallets/farmers/{farmerId}/transactions:
@@ -361,7 +361,7 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        '200':
+        "200":
           description: Transactions list
 
   /admin/notifications/send:
@@ -369,7 +369,7 @@ paths:
       tags: [Notifications]
       summary: Send SMS and in-app notification
       responses:
-        '200':
+        "200":
           description: Notification sent
 
   /admin/notifications/coop:
@@ -377,7 +377,7 @@ paths:
       tags: [Notifications]
       summary: Get cooperative notifications
       responses:
-        '200':
+        "200":
           description: Notifications list
 
   /audit-logs:
@@ -385,7 +385,7 @@ paths:
       tags: [Audit Logs]
       summary: Get audit logs
       responses:
-        '200':
+        "200":
           description: Audit logs returned
 
   /audit-logs/user/{userId}:
@@ -398,7 +398,7 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        '200':
+        "200":
           description: User audit logs
 
   /admin/dashboard:
@@ -406,5 +406,5 @@ paths:
       tags: [Dashboard]
       summary: Cooperative dashboard
       responses:
-        '200':
+        "200":
           description: Dashboard statistics
