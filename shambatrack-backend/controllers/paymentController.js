@@ -102,7 +102,16 @@ export async function processPayment(req, res) {
     const coopId = req.user.coop_id;
     const handledBy = req.user.id;
 
+    const paymentId = uuidv4();
+    const paymentRef = "PAY-" + Date.now();
+    const farmerTxnId = uuidv4();
+    const coopTxnId = uuidv4();
+
     const { delivery_id, amount, channel } = req.body;
+
+    const paymentMethod = ["wallet", "mpesa", "bank"].includes(channel)
+      ? channel
+      : "wallet";
 
     if (!delivery_id || !amount) {
       return res.status(400).json({
@@ -192,48 +201,71 @@ export async function processPayment(req, res) {
     );
 
     // Farmer transaction
-    const farmerTxnId = uuidv4();
 
     await connection.execute(
       `
-      INSERT INTO farmer_wallet_transactions (
-        id,
-        wallet_id,
-        amount,
-        type,
-        trans_ref,
-        channel,
-        coop_id
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-      `,
+  INSERT INTO farmer_wallet_transactions (
+    id,
+    wallet_id,
+    amount,
+    type,
+    trans_ref,
+    channel,
+    coop_id
+  )
+  VALUES (?, ?, ?, ?, ?, ?, ?)
+  `,
       [
         farmerTxnId,
         payment.farmer_id,
         amount,
         "credit",
-        "FWT-" + Date.now(),
-        channel || "system",
+        paymentRef,
+        paymentMethod,
         coopId,
       ],
     );
 
     // Coop transaction
-    const coopTxnId = uuidv4();
+    await connection.execute(
+      `
+  INSERT INTO cooperative_transactions (
+    id,
+    coop_id,
+    transaction_type,
+    amount,
+    reference_number,
+    user_id_handled_by
+  )
+  VALUES (?, ?, ?, ?, ?, ?)
+  `,
+      [coopTxnId, coopId, "payout", amount, paymentRef, handledBy],
+    );
 
     await connection.execute(
       `
-      INSERT INTO cooperative_transactions (
-        id,
-        coop_id,
-        transaction_type,
+  INSERT INTO payments (
+    id,
+    farmer_id,
+    coop_id,
+    amount,
+    payment_method,
+    reference_no,
+    status,
+    created_by
+  )
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `,
+      [
+        paymentId,
+        payment.farmer_id,
+        coopId,
         amount,
-        reference_number,
-        user_id_handled_by
-      )
-      VALUES (?, ?, ?, ?, ?, ?)
-      `,
-      [coopTxnId, coopId, "payout", amount, "CWT-" + Date.now(), handledBy],
+        paymentMethod,
+        paymentRef,
+        "completed",
+        handledBy,
+      ],
     );
 
     await connection.commit();

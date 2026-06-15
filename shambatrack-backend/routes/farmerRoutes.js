@@ -2,7 +2,6 @@ import express from "express";
 import {
   applyLoan,
   getMyLoans,
-  getMyPayments,
   getAvailableProducts,
   getMyNotifications,
   markNotificationAsRead,
@@ -26,8 +25,6 @@ router.post("/loans/apply", authMiddleware, applyLoan);
 router.get("/loans", authMiddleware, getMyLoans);
 
 router.get("/loans/eligibility", authMiddleware, getFarmerLoanEligibility);
-
-router.get("/payments", authMiddleware, getMyPayments);
 
 router.get("/products", authMiddleware, getAvailableProducts);
 

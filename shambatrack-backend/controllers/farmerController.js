@@ -4,6 +4,10 @@ import { logAudit } from "../utils/auditLogger.js";
 import Notification from "../models/Notification.js";
 import NotificationRecipient from "../models/NotificationRecipient.js";
 
+function generateLoanNumber() {
+  return `LN-${Date.now()}`;
+}
+
 export async function applyLoan(req, res) {
   const connection = await pool.getConnection();
 
@@ -269,21 +273,6 @@ export async function getMyLoans(req, res) {
     return res.status(500).json({
       message: "Error fetching loans",
     });
-  }
-}
-
-export async function getMyPayments(req, res) {
-  try {
-    const [rows] = await pool.query(
-      `SELECT * FROM farmer_wallet_transactions 
-       WHERE wallet_id = ? 
-       ORDER BY date DESC`,
-      [req.user.id],
-    );
-
-    res.json(rows);
-  } catch (error) {
-    res.status(500).json({ message: "Error fetching payments" });
   }
 }
 
@@ -597,7 +586,7 @@ export async function getFarmerDeliveries(req, res) {
 
 export async function getFarmerPayments(req, res) {
   try {
-    const userId = req.user.id;
+    const userId = req.user?.id;
 
     // Get farmer record
     const [farmerRows] = await pool.execute(
@@ -654,7 +643,6 @@ export async function getFarmerPayments(req, res) {
     });
   } catch (error) {
     console.error("Farmer payments error:", error);
-
     return res.status(500).json({
       message: "Failed to fetch payments",
     });
