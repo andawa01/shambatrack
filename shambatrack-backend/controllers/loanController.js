@@ -18,7 +18,7 @@ export async function createLoan(req, res) {
     const { farmer_id, loan_type, principal, tenure } = req.body;
 
     // 1. Validation
-    if (!farmer_id || !principal || !due_date) {
+    if (!farmer_id || !principal || !tenure) {
       await connection.rollback();
       return res.status(400).json({
         message: "farmer_id, principal, due_date are required",
