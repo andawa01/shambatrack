@@ -379,8 +379,8 @@ Password: SuperSecurePassword123
 ### Cooperative Administrator
 
 ```text
-Username: coopadmin
-Password: password123
+Username: kiambu_admin
+Password: Admin@123
 ```
 
 ### Farmer
