@@ -5,74 +5,228 @@ import Notification from "../models/Notification.js";
 import NotificationRecipient from "../models/NotificationRecipient.js";
 
 export async function applyLoan(req, res) {
+  const connection = await pool.getConnection();
+
   try {
-    const { principal, loan_type, due_date } = req.body;
+    await connection.beginTransaction();
 
-    const loanId = uuidv4();
-    const loanNumber = `LN-${Date.now()}`;
+    const { principal, loan_type, tenure } = req.body;
 
-    const dateIssued = new Date();
+    // Validation
+    if (!principal || !tenure) {
+      await connection.rollback();
 
-    const [farmerRows] = await pool.execute(
+      return res.status(400).json({
+        message: "principal and tenure are required",
+      });
+    }
+
+    if (Number(principal) <= 0) {
+      await connection.rollback();
+
+      return res.status(400).json({
+        message: "Principal must be greater than 0",
+      });
+    }
+
+    if (Number(tenure) <= 0) {
+      await connection.rollback();
+
+      return res.status(400).json({
+        message: "Tenure must be greater than 0",
+      });
+    }
+
+    // Get farmer profile
+    const [farmerRows] = await connection.execute(
       `
-  SELECT id
-  FROM farmers
-  WHERE user_id = ?
-  LIMIT 1
-  `,
+      SELECT id
+      FROM farmers
+      WHERE user_id = ?
+      LIMIT 1
+      `,
       [req.user.id],
     );
 
     if (farmerRows.length === 0) {
+      await connection.rollback();
+
       return res.status(404).json({
         message: "Farmer profile not found",
       });
     }
 
     const farmerId = farmerRows[0].id;
+    const coopId = req.user.coop_id;
 
-    await pool.execute(
+    // Get wallet
+    const [walletRows] = await connection.execute(
       `
-  INSERT INTO loans (
-    id,
-    loan_number,
-    farmer_id,
-    coop_id,
-    loan_type,
-    principal,
-    current_balance,
-    date_issued,
-    due_date,
-    status
-  )
-  VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?)
-  `,
+      SELECT
+        balance,
+        loan_balance,
+        loan_limit
+      FROM farmer_wallets
+      WHERE farmer_id = ?
+      AND coop_id = ?
+      `,
+      [farmerId, coopId],
+    );
+
+    if (walletRows.length === 0) {
+      await connection.rollback();
+
+      return res.status(404).json({
+        message: "Farmer wallet not found",
+      });
+    }
+
+    const walletBalance = Number(walletRows[0].balance || 0);
+
+    // Get pending payments
+    const [pendingRows] = await connection.execute(
+      `
+      SELECT COALESCE(SUM(balance), 0) AS pending_balance
+      FROM pending_payments
+      WHERE farmer_id = ?
+      AND coop_id = ?
+      `,
+      [farmerId, coopId],
+    );
+
+    const pendingBalance = Number(pendingRows[0]?.pending_balance || 0);
+
+    // Get active loans
+    const [activeLoanRows] = await connection.execute(
+      `
+      SELECT COALESCE(SUM(current_balance), 0) AS active_loans
+      FROM loans
+      WHERE farmer_id = ?
+      AND coop_id = ?
+      AND status IN ('pending', 'approved', 'disbursed')
+      `,
+      [farmerId, coopId],
+    );
+
+    const activeLoans = Number(activeLoanRows[0]?.active_loans || 0);
+
+    // Calculate loan limit
+    const netWorth = walletBalance + pendingBalance - activeLoans;
+
+    const calculatedLimit = Math.max(Number((netWorth * 0.5).toFixed(2)), 0);
+
+    // Update wallet loan limit
+    await connection.execute(
+      `
+      UPDATE farmer_wallets
+      SET loan_limit = ?
+      WHERE farmer_id = ?
+      AND coop_id = ?
+      `,
+      [calculatedLimit, farmerId, coopId],
+    );
+
+    // Validate requested amount
+    if (Number(principal) > calculatedLimit) {
+      await connection.rollback();
+
+      return res.status(400).json({
+        message: `Loan exceeds your limit. Available limit is KES ${calculatedLimit.toLocaleString()}`,
+        loan_limit: calculatedLimit,
+        wallet_balance: walletBalance,
+        pending_payments: pendingBalance,
+        active_loans: activeLoans,
+      });
+    }
+
+    // Generate loan details
+    const loanId = uuidv4();
+    const loanNumber = generateLoanNumber();
+
+    const dateIssued = new Date();
+
+    const dueDate = new Date(dateIssued);
+    dueDate.setMonth(dueDate.getMonth() + Number(tenure));
+
+    // Create loan
+    await connection.execute(
+      `
+      INSERT INTO loans (
+        id,
+        loan_number,
+        farmer_id,
+        coop_id,
+        loan_type,
+        principal,
+        current_balance,
+        date_issued,
+        due_date,
+        status
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?)
+      `,
       [
         loanId,
         loanNumber,
         farmerId,
-        req.user.coop_id,
-        loan_type,
+        coopId,
+        loan_type || "general",
         principal,
         principal,
-        due_date,
+        dueDate,
         "pending",
       ],
     );
 
+    // Audit log
     await logAudit({
       user_id: req.user.id,
-      coop_id: req.user.coop_id,
+      coop_id: coopId,
       user_name: req.user.name,
       action: "CREATE_LOAN",
       entity: "loan",
       entity_id: loanId,
+      details: {
+        farmer_id: farmerId,
+        principal,
+        loan_type,
+        tenure,
+        loan_limit: calculatedLimit,
+      },
+      ip_address: req.ip,
+      user_agent: req.get("user-agent"),
     });
 
-    res.json({ message: "Loan application submitted", loanId });
+    await connection.commit();
+
+    return res.status(201).json({
+      message: "Loan application submitted successfully",
+      loan: {
+        id: loanId,
+        loan_number: loanNumber,
+        principal,
+        current_balance: principal,
+        date_issued: dateIssued,
+        due_date: dueDate,
+        status: "pending",
+      },
+      eligibility: {
+        loan_limit: calculatedLimit,
+        wallet_balance: walletBalance,
+        pending_payments: pendingBalance,
+        active_loans: activeLoans,
+      },
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Error applying loan" });
+    await connection.rollback();
+
+    console.error("Apply loan error:", error);
+
+    return res.status(500).json({
+      message: "Server error",
+    });
+  } finally {
+    connection.release();
   }
 }
 
@@ -609,6 +763,90 @@ export async function getMyWallet(req, res) {
   }
 }
 
+export async function getFarmerLoanEligibility(req, res) {
+  try {
+    const userId = req.user.id;
+    const coopId = req.user.coop_id;
+
+    const [farmerRows] = await pool.execute(
+      `
+      SELECT id
+      FROM farmers
+      WHERE user_id = ?
+      LIMIT 1
+      `,
+      [userId],
+    );
+
+    if (farmerRows.length === 0) {
+      return res.status(404).json({
+        message: "Farmer profile not found",
+      });
+    }
+
+    const farmerId = farmerRows[0].id;
+
+    // Wallet balance
+    const [walletRows] = await pool.execute(
+      `
+      SELECT COALESCE(balance,0) AS balance
+      FROM farmer_wallets
+      WHERE farmer_id = ?
+      AND coop_id = ?
+      `,
+      [farmerId, coopId],
+    );
+
+    const walletBalance = Number(walletRows[0]?.balance || 0);
+
+    // Pending payments
+    const [pendingRows] = await pool.execute(
+      `
+      SELECT COALESCE(SUM(balance),0) AS pending_balance
+      FROM pending_payments
+      WHERE farmer_id = ?
+      AND coop_id = ?
+      `,
+      [farmerId, coopId],
+    );
+
+    const pendingBalance = Number(pendingRows[0]?.pending_balance || 0);
+
+    // Active loans
+    const [loanRows] = await pool.execute(
+      `
+      SELECT COALESCE(SUM(current_balance),0) AS active_loans
+      FROM loans
+      WHERE farmer_id = ?
+      AND coop_id = ?
+      AND status IN ('pending','approved','disbursed')
+      `,
+      [farmerId, coopId],
+    );
+
+    const activeLoans = Number(loanRows[0]?.active_loans || 0);
+
+    // Eligibility formula
+    const loanLimit = Math.max(
+      (walletBalance + pendingBalance - activeLoans) * 0.5,
+      0,
+    );
+
+    return res.status(200).json({
+      walletBalance,
+      pendingBalance,
+      activeLoans,
+      loanLimit,
+    });
+  } catch (error) {
+    console.error("Loan eligibility error:", error);
+
+    return res.status(500).json({
+      message: "Server error",
+    });
+  }
+}
+
 // LOAN SUMMARY
 export async function getFarmerLoanSummary(req, res) {
   try {
@@ -664,7 +902,13 @@ export async function getFarmerLoanSummary(req, res) {
 // LOAN DETAILS
 export async function getFarmerLoanDetails(req, res) {
   try {
-    const { loanId } = req.params;
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        message: "Loan ID is required",
+      });
+    }
 
     const [rows] = await pool.execute(
       `
@@ -673,7 +917,7 @@ export async function getFarmerLoanDetails(req, res) {
       WHERE id = ?
       LIMIT 1
       `,
-      [loanId],
+      [id],
     );
 
     if (rows.length === 0) {

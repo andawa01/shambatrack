@@ -8,20 +8,24 @@ const FarmerLoans = () => {
   const [loading, setLoading] = useState(true);
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [eligibility, setEligibility] = useState(null);
 
   const [formData, setFormData] = useState({
     loan_type: "",
     principal: "",
-    due_date: "",
+    tenure: "",
   });
 
   const fetchLoans = async () => {
     try {
       setLoading(true);
-      const [summaryRes, loansRes] = await Promise.all([
+      const [summaryRes, loansRes, eligibilityRes] = await Promise.all([
         api.get("/farmer/loans/summary"),
         api.get("/farmer/loans"),
+        api.get("/farmer/loans/eligibility"),
       ]);
+
+      setEligibility(eligibilityRes.data);
 
       setSummary(summaryRes.data);
       setLoans(loansRes.data.loans || loansRes.data || []);
@@ -49,10 +53,25 @@ const FarmerLoans = () => {
     e.preventDefault();
     try {
       setSubmitting(true);
+      if (
+        eligibility &&
+        Number(formData.principal) > Number(eligibility.loanLimit)
+      ) {
+        toast.error(
+          `Loan exceeds your limit. Maximum allowed is KES ${Number(
+            eligibility.loanLimit,
+          ).toLocaleString()}`,
+        );
+        return;
+      }
       await api.post("/farmer/loans/apply", formData);
       toast.success("Credit request submitted to underwriting ledger");
       setShowApplyModal(false);
-      setFormData({ loan_type: "", principal: "", due_date: "" });
+      setFormData({
+        loan_type: "",
+        principal: "",
+        tenure: "",
+      });
       fetchLoans();
     } catch (error) {
       console.error(error);
@@ -387,19 +406,53 @@ const FarmerLoans = () => {
                 </div>
               </div>
 
+              {eligibility && (
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs space-y-2">
+                  <p className="font-bold text-slate-700">
+                    Loan Eligibility Analysis
+                  </p>
+
+                  <p>
+                    Wallet Balance: KES{" "}
+                    {Number(eligibility.walletBalance || 0).toLocaleString()}
+                  </p>
+
+                  <p>
+                    Pending Payments: KES{" "}
+                    {Number(eligibility.pendingBalance || 0).toLocaleString()}
+                  </p>
+
+                  <p>
+                    Active Loans: KES{" "}
+                    {Number(eligibility.activeLoans || 0).toLocaleString()}
+                  </p>
+
+                  <p className="font-black text-emerald-600">
+                    Available Limit: KES{" "}
+                    {Number(eligibility.loanLimit || 0).toLocaleString()}
+                  </p>
+                </div>
+              )}
+
               {/* Field 3: Maturation Cutoff Target Date */}
               <div className="space-y-1">
                 <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                  Maturation Cutoff Target Date
+                  Loan Tenure
                 </label>
-                <input
-                  type="date"
-                  name="due_date"
-                  value={formData.due_date}
+
+                <select
+                  name="tenure"
+                  value={formData.tenure}
                   onChange={handleChange}
-                  className="w-full bg-slate-50/60 border border-slate-200 text-slate-800 rounded-xl px-4 py-2.5 text-xs font-mono font-bold focus:outline-hidden focus:border-slate-400 focus:bg-white transition"
                   required
-                />
+                  className="w-full bg-slate-50/60 border border-slate-200 text-slate-800 rounded-xl px-4 py-2.5 text-xs font-bold focus:outline-hidden focus:border-slate-400 focus:bg-white transition"
+                >
+                  <option value="">Select Tenure</option>
+                  <option value="1">1 Month</option>
+                  <option value="3">3 Months</option>
+                  <option value="6">6 Months</option>
+                  <option value="12">12 Months</option>
+                </select>
               </div>
 
               {/* Action operations platform bar */}

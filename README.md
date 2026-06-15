@@ -13,13 +13,13 @@ The platform helps cooperatives replace paper-based and spreadsheet-driven workf
 Frontend:
 
 ```
-<YOUR_FRONTEND_URL>
+https://shambatrack.vercel.app/
 ```
 
 Backend API:
 
 ```
-<YOUR_BACKEND_URL>
+https://shambatrack.onrender.com/
 ```
 
 ---
@@ -282,7 +282,7 @@ shambatrack/
 ### Clone Repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/andawa01/shambatrack
 
 cd shambatrack
 ```
@@ -316,13 +316,13 @@ PORT=5000
 
 JWT_SECRET=your-secret
 
-MYSQL_HOST=localhost
-MYSQL_PORT=3306
-MYSQL_USER=root
+MYSQL_HOST=
+MYSQL_PORT=
+MYSQL_USER=
 MYSQL_PASSWORD=password
-MYSQL_DATABASE=shambatrack
+MYSQL_DATABASE=
 
-MONGO_URI=mongodb://localhost:27017/shambatrack
+MONGO_URI=
 ```
 
 Run migrations / seeders:
@@ -372,8 +372,8 @@ npm run dev
 ### System Administrator
 
 ```text
-Username: sysadmin
-Password: password123
+Username: superadmin
+Password: SuperSecurePassword123
 ```
 
 ### Cooperative Administrator
@@ -387,10 +387,8 @@ Password: password123
 
 ```text
 Username: james_farmer
-Password: password123
+Password: Farmer@123
 ```
-
-Replace these credentials with your actual seeded accounts.
 
 ---
 
@@ -488,6 +486,7 @@ POST   /api/wallets/debit
 ```http
 GET /api/audit-logs
 GET /api/audit-log/farmer
+Grt /api/audit-log/coop-admin
 ```
 
 ---

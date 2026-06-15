@@ -14,6 +14,7 @@ import {
   getFarmerLoanDetails,
   getFarmerLoanTransactions,
   getFarmerProfile,
+  getFarmerLoanEligibility,
 } from "../controllers/farmerController.js";
 
 import { authMiddleware, requireRole } from "../middleware/authMiddleware.js";
@@ -21,7 +22,10 @@ import { authMiddleware, requireRole } from "../middleware/authMiddleware.js";
 const router = express.Router();
 
 router.post("/loans/apply", authMiddleware, applyLoan);
+
 router.get("/loans", authMiddleware, getMyLoans);
+
+router.get("/loans/eligibility", authMiddleware, getFarmerLoanEligibility);
 
 router.get("/payments", authMiddleware, getMyPayments);
 
