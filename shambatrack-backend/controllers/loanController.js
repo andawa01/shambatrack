@@ -163,7 +163,7 @@ export async function createLoan(req, res) {
         farmer_id,
         loan_type,
         principal,
-        due_date,
+        dueDate,
         loan_limit: calculatedLimit,
       },
       ip_address: req.ip,
